@@ -50,7 +50,6 @@ class TwitterWorker(Thread):
                 self.update_list()
                 twitter_interact.update_twitter(self.recurser_list)
                 print "Sleeping..", self.interval
-                break
             time.sleep(10)
 
     def get_api_endpoint(self, api_query):
@@ -65,7 +64,7 @@ class TwitterWorker(Thread):
             people = requests.get(self.get_api_endpoint(batch_people))
             for person in people.json():
                 self.recurser_list.append(person["twitter"])
-        self.recurser_list = list(set(self.recurser_list))
+        self.recurser_list = [item for item in self.recurser_list if item]
         print self.recurser_list
 
 

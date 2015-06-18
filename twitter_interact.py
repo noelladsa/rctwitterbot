@@ -8,7 +8,7 @@ from pymarkovchain import MarkovChain
 import os
 
 RESULTS_PER_USER = 100
-FINAL_TWEET_MIN_LENGTH = 50
+FINAL_TWEET_MIN_LENGTH = 70
 tweet_list = []
 api_key=os.environ.get('TWITTER_API_KEY', None)
 api_secret=os.environ.get('TWITTER_API_SECRET', None)
