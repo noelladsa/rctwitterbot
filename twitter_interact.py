@@ -41,8 +41,8 @@ def getMarkovSyntetizedText():
     # To let the markov chain generate some text, execute
     return mc.generateString()
 
+#runs the markov chain alg until it finds a synthesized msgs that is more then 50 chars long and does not contain links
 def getFilteredSynthesizedTweet():
-    notGoodSynthesizedMsg = True
     generatedTweet = getMarkovSyntetizedText()
     print generatedTweet
     while len(generatedTweet) < FINAL_TWEET_MIN_LENGTH or "http://" in generatedTweet:
@@ -51,6 +51,7 @@ def getFilteredSynthesizedTweet():
 
 if __name__ == '__main__':
     twy = twython.Twython(api_key,api_secret,access_key, access_token)
+    #splits the handles list in sublists of size 15 and does a multiple user search for each sublist
     twitterHandles = chunks(twitterHandleList, 15)
 
     for handlesChunk in twitterHandles:  
