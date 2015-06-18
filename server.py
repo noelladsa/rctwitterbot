@@ -19,13 +19,13 @@ auth = OAuth(app).remote_app(
     base_url='https://www.recurse.com/api/v1/',
     access_token_url='https://www.recurse.com/oauth/token',
     authorize_url='https://www.recurse.com/oauth/authorize',
-    consumer_key=os.environ.get('CONSUMER_KEY', None),
-    consumer_secret=os.environ.get('CONSUMER_SECRET', None),
+    consumer_key=os.environ.get('RC_KEY', None),
+    consumer_secret=os.environ.get('RC_SECRET', None),
     access_token_method='POST'
     )
 
-updater = TwitterWorker(10800, os.environ.get('CONSUMER_KEY', None),
-                        os.environ.get('CONSUMER_SECRET', None),
+updater = TwitterWorker(10800, os.environ.get('RC_KEY', None),
+                        os.environ.get('RC_SECRET', None),
                         'https://www.recurse.com/api/v1/',
                         'https://www.recurse.com/oauth/token')
 # internal auth mechanics ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
@@ -133,7 +133,7 @@ def hippos(login=None):
 if __name__ == '__main__':
     print "Staring thread"
     updater.start()
-    app.debug = True
+    #app.debug = True
     app.run(host='0.0.0.0')
 
 # eof

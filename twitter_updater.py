@@ -1,6 +1,7 @@
 from threading import Thread
 import time
 import requests
+import twitter_interact
 
 
 class TwitterWorker(Thread):
@@ -44,10 +45,13 @@ class TwitterWorker(Thread):
     def run(self):
         while True:
             if self.a_token and self.r_token:
+                print "Refreshing tokens, and updating list"
                 self.refresh_tokens()
                 self.update_list()
+                twitter_interact.update_twitter(self.recurser_list)
                 print "Sleeping..", self.interval
-            time.sleep(self.interval)
+                break
+            time.sleep(10)
 
     def get_api_endpoint(self, api_query):
         access_token_q = "?access_token="+self.access_token
