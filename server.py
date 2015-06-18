@@ -8,6 +8,8 @@ from flask import Flask, session, url_for, flash, redirect, request
 from flask import render_template
 from flask_oauthlib.client import OAuth
 
+from twitter_updater import TwitterWorker
+
 # flask app and an oauth object  ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 app = Flask(__name__)
@@ -22,7 +24,10 @@ auth = OAuth(app).remote_app(
     access_token_method='POST'
     )
 
-cached_twitter_handles = []
+updater = TwitterWorker(10800, os.environ.get('CONSUMER_KEY', None),
+                        os.environ.get('CONSUMER_SECRET', None),
+                        'https://www.recurse.com/api/v1/',
+                        'https://www.recurse.com/oauth/token')
 # internal auth mechanics ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 
@@ -63,9 +68,7 @@ def login():
         flash('You are already logged in.')
         return redirect(request.referrer or url_for('index'))
     else:
-        afterward = request.args.get('next') or request.referrer or None
-        landing = url_for('oauth_authorized', next=afterward, _external=True)
-        print landing
+        landing = url_for('oauth_authorized',  _external=True)
         return auth.authorize(callback=landing)
 
 
@@ -79,9 +82,8 @@ def oauth_authorized(resp):
         # unfortunately
         session['login'] = dict(oauth_token=(resp['access_token'],
                                 resp['refresh_token']))
-        print "ENTIRE RESPONSE\n", resp
-        print "THIS IS THE ACCESS", resp['access_token']
-        print "THIS IS THE REFRESH", resp['refresh_token']
+        updater.access_token = resp['access_token']
+        updater.refresh_token = resp['refresh_token']
     except TypeError as exc:
         flash('The login request was declined.(TypeError: %s)' % exc)
         return redirect(url_for('index'))
@@ -97,41 +99,14 @@ def oauth_authorized(resp):
         session['login']['image'] = me.data['image']
     else:
         session['login']['user'] = 'Hacker Schooler'
+
     flash('You are logged in.')
     return redirect(request.args.get('next') or url_for('index'))
 
 
-@app.route('/auto_refresh')
-def auto_refresh():
-    print "Doing Auto Refresh"
-    access_token, refresh_token = session["login"]["oauth_token"]
-    afterward = request.args.get('next') or request.referrer or None
-    landing = url_for('oauth_authorized', next=afterward, _external=True)
-    auth = OAuth(app).remote_app(
-        'rc twitterer',
-        access_token_params={refresh_token: refresh_token},
-        base_url='https://www.recurse.com/api/v1/',
-        access_token_url='https://www.recurse.com/oauth/token',
-        authorize_url='https://www.recurse.com/oauth/authorize',
-        consumer_key=os.environ.get('CONSUMER_KEY', None),
-        consumer_secret=os.environ.get('CONSUMER_SECRET', None),
-        access_token_method='POST'
-        )
-    return auth.authorize(callback=landing)
-
-
 @app.route('/get_list')
 def get_list():
-    print "Get List of Twitter Handles"
-    batches = auth.get('batches')
-    cached_twitter_handles = []
-    for batch in batches.data:
-        batch_people = 'batches/'+str(batch["id"])+'/people'
-        people = auth.get(batch_people)
-        for person in people.data:
-            cached_twitter_handles.append(person["twitter"])
-    twitter_list = list(set(cached_twitter_handles))
-    return json.dumps(twitter_list)
+    return json.dumps(updater.recurser_list)
 
 
 @app.route('/logout')
@@ -156,6 +131,8 @@ def hippos(login=None):
 
 
 if __name__ == '__main__':
+    print "Staring thread"
+    updater.start()
     app.debug = True
     app.run(host='0.0.0.0')
 
