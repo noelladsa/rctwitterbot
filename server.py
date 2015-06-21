@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import json
 from functools import wraps
 
 from flask import Flask, session, url_for, flash, redirect, request
@@ -11,23 +10,21 @@ from flask_oauthlib.client import OAuth
 from twitter_updater import TwitterWorker
 
 # flask app and an oauth object  ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
+base_url = 'https://www.recurse.com/api/v1/'
+access_token_url = 'https://www.recurse.com/oauth/token'
+authorize_url = 'https://www.recurse.com/oauth/authorize'
+consumer_key = os.environ.get('RC_KEY', None)
+consumer_secret = os.environ.get('RC_SECRET', None)
+time_seconds = 10800
 
 app = Flask(__name__)
 app.secret_key = 'dev secret key horses hippos misssspellings etc'
 auth = OAuth(app).remote_app(
-    'rc twitterer',
-    base_url='https://www.recurse.com/api/v1/',
-    access_token_url='https://www.recurse.com/oauth/token',
-    authorize_url='https://www.recurse.com/oauth/authorize',
-    consumer_key=os.environ.get('RC_KEY', None),
-    consumer_secret=os.environ.get('RC_SECRET', None),
-    access_token_method='POST'
-    )
+    'rc twitterer', base_url=base_url, access_token_url=access_token_url,
+    authorize_url=authorize_url, consumer_key=consumer_key,
+    consumer_secret=consumer_secret, access_token_method='POST')
 
-updater = TwitterWorker(10800, os.environ.get('RC_KEY', None),
-                        os.environ.get('RC_SECRET', None),
-                        'https://www.recurse.com/api/v1/',
-                        'https://www.recurse.com/oauth/token')
+updater = TwitterWorker(time_seconds, base_url, access_token_url)
 # internal auth mechanics ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 
@@ -46,7 +43,6 @@ def get_token(token=None):
 
 def protected(route):
     # in large apps it is probably better to use the Flask-Login extension than
-    # this route decohttp://10.0.9.205:5000/oauth_authorizedrator because this
     # decorator doesn't provide you with
     # 1. user access levels or
     # 2. the helpful abstraction of an "anonymous" user (not yet logged in)
@@ -68,7 +64,8 @@ def login():
         flash('You are already logged in.')
         return redirect(request.referrer or url_for('index'))
     else:
-        landing = url_for('oauth_authorized',  _external=True)
+        afterward = request.args.get('next') or request.referrer or None
+        landing = url_for('oauth_authorized', next=afterward, _external=True)
         return auth.authorize(callback=landing)
 
 
@@ -82,14 +79,15 @@ def oauth_authorized(resp):
         # unfortunately
         session['login'] = dict(oauth_token=(resp['access_token'],
                                 resp['refresh_token']))
-        updater.access_token = resp['access_token']
-        updater.refresh_token = resp['refresh_token']
+        updater.save_tokens(resp['access_token'], resp['refresh_token'])
     except TypeError as exc:
         flash('The login request was declined.(TypeError: %s)' % exc)
+        updater.clear_tokens()
         return redirect(url_for('index'))
     except KeyError as exc:
         flash('There was a problem with the response dict. (KeyError: %s) %s'
               % (exc, resp))
+        updater.clear_tokens()
         return redirect(url_for('index'))
     # now get their username
     me = auth.get('people/me')
@@ -98,15 +96,10 @@ def oauth_authorized(resp):
         session['login']['email'] = me.data['email']
         session['login']['image'] = me.data['image']
     else:
-        session['login']['user'] = 'Hacker Schooler'
+        session['login']['user'] = 'Recurser'
 
     flash('You are logged in.')
     return redirect(request.args.get('next') or url_for('index'))
-
-
-@app.route('/get_list')
-def get_list():
-    return json.dumps(updater.recurser_list)
 
 
 @app.route('/logout')
@@ -114,6 +107,7 @@ def logout():
     # the important bit here is to remove the login from the session
     flash('You have logged out.') if session.pop('login', None) \
         else flash('You aren\'t even logged in.')
+    updater.clear_tokens()
     return redirect(url_for('index'))
 
 # pages ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
@@ -131,9 +125,8 @@ def hippos(login=None):
 
 
 if __name__ == '__main__':
-    print "Staring thread"
+    print "Starting thread"
     updater.start()
-    #app.debug = True
     app.run(host='0.0.0.0')
 
 # eof
