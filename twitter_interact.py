@@ -15,8 +15,10 @@ api_secret=os.environ.get('TWITTER_API_SECRET', None)
 access_key= os.environ.get('TWITTER_ACCESS_KEY', None)
 access_token = os.environ.get('TWITTER_ACCESS_TOKEN', None)
 
+#get the respose object of the search api call, extract the text from it and store it in a list of tweets
 def add_twitters_from_search(twitter_response_dict, tweet_list):
     for tweet in twitter_response_dict["statuses"]:
+        #indices stores tuples of start and end position of all the mentions and urls in a tweet
         indices = []
         entities = tweet["entities"]
         mention_list = entities["user_mentions"]
@@ -31,6 +33,7 @@ def add_twitters_from_search(twitter_response_dict, tweet_list):
         indices.sort(key=lambda tup: tup[1]) 
         tweet_list.append(filter_mentions_and_urls(indices, tweet["text"]))
 
+#filters all the urls and mentions of a tweet
 def filter_mentions_and_urls(indices, tweet_text):
     trimmed_chars = 0
     for index_tuple in indices:
@@ -46,7 +49,8 @@ def chunks(l, n):
 def create_search_query(handlesList):
      return "from:" + "+OR+from:".join(handlesList)
 
-def get_formatted_yesterday_date():
+#in order to get tweets from 2 days ago
+def get_formatted_date():
     yesterday_date = datetime.now() - timedelta(days=2)
     return yesterday_date.strftime("%Y-%m-%d")
 
@@ -55,6 +59,9 @@ def get_formatted_yesterday_date():
 def get_markov_syntetized_tweet(tweet_list):
     return (" ").join(word_level_generate(tweet_list, 2, count=2))
 
+#runs the markov chain alg until a tweet of length in between 100 and 140 chars that does not contain ulrs is sythetized 
+# the final tweet shoul not contain urls because we have filtered them later, twitter is not doing a good job adding the url meta info in the result object for all the tweets
+#some of them are missing it, so we need to do a final check here
 def get_filtered_synthesized_tweet(tweet_list):
     generated_tweet = get_markov_syntetized_tweet(tweet_list)
     while len(generated_tweet) < FINAL_TWEET_MIN_LENGTH or len(generated_tweet) > FINAL_TWEET_MAX_LENGTH or "http://" in generated_tweet or "https://" in generated_tweet:
@@ -84,13 +91,14 @@ def update_twitter(handles):
     #print "Final tweet:" + get_filtered_synthesized_tweet(tweet_list)
     twy.update_status(status=get_filtered_synthesized_tweet(tweet_list))
 
+#call the twython search api call
 def search_tweets(twython, handles_chunk, next_max_id=0):
     if next_max_id == 0:
-        return twython.search(q=create_search_query(handles_chunk), since=get_formatted_yesterday_date(), exclude="retweets", count=RESULTS_PER_USER, exclude_replies=1)
+        return twython.search(q=create_search_query(handles_chunk), since=get_formatted_date(), exclude="retweets", count=RESULTS_PER_USER, exclude_replies=1)
     else:
-        return twython.search(q=create_search_query(handles_chunk), since=get_formatted_yesterday_date(), exclude="retweets", count=RESULTS_PER_USER, exclude_replies=1, max_id=next_max_id)
+        return twython.search(q=create_search_query(handles_chunk), since=get_formatted_date(), exclude="retweets", count=RESULTS_PER_USER, exclude_replies=1, max_id=next_max_id)
 
-
+#we get 100 results per call, so we need to calculate the max_id of the tweet of the next call in order to get the nest 100 tweets
 def get_next_max_id(results):
     # Get the next max_id
     try:
