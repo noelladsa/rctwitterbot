@@ -54,12 +54,15 @@ class TwitterWorker(Thread):
         while True:
             try:
                 self.refresh_tokens()
-                recursers = self.get_tweeting_recursers()
-                twitter_interact.update_twitter(recursers)
+                if self.a_token and  self.r_token:
+                    recursers = self.get_tweeting_recursers()
+                    twitter_interact.update_twitter(recursers)
+                    time.sleep(self.interval)
+                else:
+                    time.sleep(30)                    
             except:
                 traceback.print_exc(file=sys.stdout)
-            time.sleep(self.interval)
-
+            
     def get_api_endpoint(self, api_query):
         access_token_q = "?access_token="+self.a_token
         return self.base_url + api_query + access_token_q

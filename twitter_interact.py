@@ -63,6 +63,8 @@ def get_filtered_synthesized_tweet(tweet_list):
     return generated_tweet   
 
 def update_twitter(handles):
+    if not handles:
+        return
     tweet_list = []
     twy = twython.Twython(api_key,api_secret,access_key, access_token)
     #splits the handles list in sublists of size 15 and does a multiple user search for each sublist
@@ -80,7 +82,7 @@ def update_twitter(handles):
     random.shuffle(tweet_list)
     #print "\n".join(tweet_list)
     #print "Final tweet:" + get_filtered_synthesized_tweet(tweet_list)
-    twy.update_status(status=get_filtered_synthesized_tweet())
+    twy.update_status(status=get_filtered_synthesized_tweet(tweet_list))
 
 def search_tweets(twython, handles_chunk, next_max_id=0):
     if next_max_id == 0:
